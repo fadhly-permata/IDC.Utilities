@@ -5,8 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Demo.Middlewares;
 
-public class ApiResponseMiddleware(RequestDelegate next, ILogger<ApiResponseMiddleware> logger)
+public class ApiResponseMiddleware
 {
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ApiResponseMiddleware> _logger;
+    private readonly bool _includeExceptionDetails;
     private static readonly HashSet<string> SkipPaths = new(StringComparer.OrdinalIgnoreCase)
     {
         "/swagger",
@@ -20,11 +23,22 @@ public class ApiResponseMiddleware(RequestDelegate next, ILogger<ApiResponseMidd
         WriteIndented = true,
     };
 
+    public ApiResponseMiddleware(
+        RequestDelegate next,
+        ILogger<ApiResponseMiddleware> logger,
+        bool includeExceptionDetails = false
+    )
+    {
+        _next = next;
+        _logger = logger;
+        _includeExceptionDetails = includeExceptionDetails;
+    }
+
     public async Task InvokeAsync(HttpContext context)
     {
         if (ShouldSkip(context.Request.Path))
         {
-            await next(context);
+            await _next(context);
             return;
         }
 
@@ -36,7 +50,7 @@ public class ApiResponseMiddleware(RequestDelegate next, ILogger<ApiResponseMidd
             using var responseBody = new MemoryStream();
             context.Response.Body = responseBody;
 
-            await next(context);
+            await _next(context);
 
             // Skip jika bukan JSON atau sudah ApiResponse
             if (!IsJsonResponse(context.Response) || IsApiResponseEndpoint(endpoint))
@@ -100,7 +114,13 @@ public class ApiResponseMiddleware(RequestDelegate next, ILogger<ApiResponseMidd
         try
         {
             // Baca sebagai JSON dan kembalikan sebagai object
-            return await JsonSerializer.DeserializeAsync<object>(body, JsonSerializerOptions);
+            var data = await JsonSerializer.DeserializeAsync<JsonElement>(
+                body,
+                JsonSerializerOptions
+            );
+
+            // Cek jika response sudah berupa ApiResponse
+            return IsApiResponse(data) ? data : data;
         }
         catch
         {
@@ -110,8 +130,23 @@ public class ApiResponseMiddleware(RequestDelegate next, ILogger<ApiResponseMidd
         }
     }
 
+    private static bool IsApiResponse(JsonElement element)
+    {
+        // Cek properti dasar dari ApiResponse
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty("isSuccess", out _)
+            && element.TryGetProperty("message", out _)
+            && element.TryGetProperty("timestamp", out _);
+    }
+
     private static object CreateApiResponse(object? data, int statusCode)
     {
+        // Jika data sudah dalam format ApiResponse, kembalikan langsung
+        if (data is JsonElement element && IsApiResponse(element))
+        {
+            return data;
+        }
+
         var isSuccess = statusCode >= 200 && statusCode < 400;
         var message = isSuccess ? "Success" : "An error occurred";
 
@@ -138,12 +173,9 @@ public class ApiResponseMiddleware(RequestDelegate next, ILogger<ApiResponseMidd
 
     private async Task HandleExceptionAsync(HttpContext context, Exception ex, Stream originalBody)
     {
-        logger.LogError(ex, "An error occurred while processing the request");
+        _logger.LogError(ex, "An error occurred while processing the request");
 
-        var errorResponse = ApiResponse.Failure(
-            ex,
-            includeDetails: context.Response.StatusCode == 500
-        );
+        var errorResponse = ApiResponse.Failure(ex, includeDetails: _includeExceptionDetails);
         var jsonError = JsonSerializer.Serialize(errorResponse, JsonSerializerOptions);
 
         context.Response.Body = originalBody;
@@ -166,8 +198,11 @@ public class ApiResponseMiddleware(RequestDelegate next, ILogger<ApiResponseMidd
 
 public static class ApplicationBuilderExtensions
 {
-    public static IApplicationBuilder UseApiResponseWrapper(this IApplicationBuilder builder)
+    public static IApplicationBuilder UseApiResponseWrapper(
+        this IApplicationBuilder builder,
+        bool includeExceptionDetails = false
+    )
     {
-        return builder.UseMiddleware<ApiResponseMiddleware>();
+        return builder.UseMiddleware<ApiResponseMiddleware>(includeExceptionDetails);
     }
 }

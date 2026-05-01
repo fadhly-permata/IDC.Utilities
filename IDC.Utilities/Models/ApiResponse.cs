@@ -179,14 +179,22 @@ public class ApiResponse<T>(
     /// <param name="message">Pesan error yang menjelaskan kegagalan.</param>
     /// <param name="errors">Daftar error tambahan (opsional).</param>
     /// <returns>Instance ApiResponse dengan status gagal.</returns>
-    public static ApiResponse<T> Failure(string message, List<ApiErrorDetails>? errors = null) =>
-        new(
+    public static ApiResponse<T> Failure(string message, List<ApiErrorDetails>? errors = null)
+    {
+        // Jika hanya ada satu error dan pesannya sama dengan message utama, hapus errors
+        if (errors?.Count == 1 && errors[0].Message == message)
+        {
+            errors = null;
+        }
+
+        return new(
             isSuccess: false,
             message: message,
             data: default,
             errors: errors,
             traceId: GetTraceId()
         );
+    }
 
     /// <summary>
     ///     Membuat instance ApiResponse dari exception.
@@ -302,8 +310,14 @@ public class ApiResponse(
     /// <param name="message">Pesan error yang menjelaskan kegagalan.</param>
     /// <param name="errors">Daftar error tambahan (opsional).</param>
     /// <returns>Instance ApiResponse dengan status gagal.</returns>
-    public static new ApiResponse Failure(string message, List<ApiErrorDetails>? errors = null) =>
-        new(isSuccess: false, message: message, errors: errors, traceId: GetTraceId());
+    public static new ApiResponse Failure(string message, List<ApiErrorDetails>? errors = null)
+    {
+        // Jika hanya ada satu error dan pesannya sama dengan message utama, hapus errors
+        if (errors?.Count == 1 && errors[0].Message == message)
+            errors = null;
+
+        return new(isSuccess: false, message: message, errors: errors, traceId: GetTraceId());
+    }
 
     /// <summary>
     ///     Membuat instance ApiResponse dari exception.

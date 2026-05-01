@@ -1,4 +1,5 @@
 using Demo.Middlewares;
+using Demo.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,18 +22,14 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Weather Forecast API V1"));
-}
+app.UseSwagger();
+app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Weather Forecast API V1"));
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
 
-// Pastikan UseApiResponseWrapper() dipanggil sebelum MapControllers()
-app.UseApiResponseWrapper();
+// Gunakan middleware dengan konfigurasi
+app.UseApiResponseWrapper(Commons.IsDevelopment());
 
 app.MapControllers();
 app.Run();

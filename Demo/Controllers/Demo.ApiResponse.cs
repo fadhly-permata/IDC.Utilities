@@ -46,6 +46,20 @@ public class ProductsController : ControllerBase
         );
     }
 
+    [HttpPost("apiresponse/noData/success")]
+    public ApiResponse NoData() => ApiResponse.Success();
+
+    [HttpPost("apiresponse/noData/failure")]
+    public ApiResponse NoDataFailure() => ApiResponse.Failure("Demo Error");
+
+    [HttpPost("apiresponse/withData/success")]
+    public ApiResponse<List<Product>> WithData() =>
+        ApiResponse<List<Product>>.Success(_products, "Demo Success");
+
+    [HttpPost("apiresponse/withData/failure")]
+    public ApiResponse<List<Product>> WithDataFailure() =>
+        ApiResponse<List<Product>>.Failure("Demo Error");
+
     // ================== ERROR DEMO ENDPOINTS ==================
 
     // 400 Bad Request
