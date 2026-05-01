@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Data;
 using IDC.Utilities.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -113,7 +112,7 @@ public class ProductsController : ControllerBase
     [HttpGet("error/rate-limit")]
     public IActionResult RateLimitError()
     {
-        Response.Headers["Retry-After"] = "60";
+        Response.Headers.RetryAfter = "60";
         return StatusCode(429, ApiResponse.Failure("Too many requests, please try again later"));
     }
 
@@ -121,14 +120,14 @@ public class ProductsController : ControllerBase
     [HttpGet("error/server")]
     public IActionResult ServerError()
     {
-        throw new ApplicationException("An unexpected error occurred on the server");
+        throw new InvalidOperationException("An unexpected error occurred on the server");
     }
 
     // 503 Service Unavailable
     [HttpGet("error/maintenance")]
     public IActionResult MaintenanceError()
     {
-        Response.Headers["Retry-After"] = "3600";
+        Response.Headers.RetryAfter = "3600";
         return StatusCode(503, ApiResponse.Failure("Service is currently under maintenance"));
     }
 

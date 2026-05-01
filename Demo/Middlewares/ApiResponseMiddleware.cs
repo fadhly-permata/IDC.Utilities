@@ -60,10 +60,13 @@ public class ApiResponseMiddleware
             }
 
             // Baca response body
-            var responseData = await ReadResponseBody(responseBody);
+            var (responseData, statusCode) = await ReadResponseBody(
+                responseBody,
+                context.Response.StatusCode
+            );
 
             // Buat ApiResponse
-            var apiResponse = CreateApiResponse(responseData, context.Response.StatusCode);
+            var apiResponse = CreateApiResponse(responseData, statusCode);
 
             // Tulis response baru
             await WriteApiResponse(context, apiResponse, originalBody);
@@ -104,47 +107,68 @@ public class ApiResponseMiddleware
         return false;
     }
 
-    private static async Task<object?> ReadResponseBody(Stream body)
+    private static async Task<(object? Data, int StatusCode)> ReadResponseBody(
+        Stream body,
+        int statusCode
+    )
     {
         body.Seek(0, SeekOrigin.Begin);
 
         if (body.Length == 0)
-            return null;
+            return (null, statusCode);
 
         try
         {
-            // Baca sebagai JSON dan kembalikan sebagai object
-            var data = await JsonSerializer.DeserializeAsync<JsonElement>(
-                body,
+            // Baca sebagai JSON
+            var jsonDocument = await JsonDocument.ParseAsync(body);
+            var rootElement = jsonDocument.RootElement;
+
+            // Jika ini ProblemDetails (validation error)
+            if (
+                statusCode >= 400
+                && statusCode < 500
+                && rootElement.TryGetProperty("errors", out _)
+            )
+            {
+                var apiResponse = ConvertProblemDetailsToApiResponse(rootElement, statusCode);
+                return (apiResponse, statusCode);
+            }
+
+            // Jika sudah ApiResponse, kembalikan langsung
+            if (IsApiResponse(rootElement))
+            {
+                return (rootElement, statusCode);
+            }
+
+            var data = JsonSerializer.Deserialize<object>(
+                rootElement.GetRawText(),
                 JsonSerializerOptions
             );
-
-            // Cek jika response sudah berupa ApiResponse
-            return IsApiResponse(data) ? data : data;
+            return (data, statusCode);
         }
         catch
         {
             // Jika gagal, baca sebagai string
             body.Seek(0, SeekOrigin.Begin);
-            return await new StreamReader(body).ReadToEndAsync();
+            return (await new StreamReader(body).ReadToEndAsync(), statusCode);
         }
-    }
-
-    private static bool IsApiResponse(JsonElement element)
-    {
-        // Cek properti dasar dari ApiResponse
-        return element.ValueKind == JsonValueKind.Object
-            && element.TryGetProperty("isSuccess", out _)
-            && element.TryGetProperty("message", out _)
-            && element.TryGetProperty("timestamp", out _);
     }
 
     private static object CreateApiResponse(object? data, int statusCode)
     {
-        // Jika data sudah dalam format ApiResponse, kembalikan langsung
+        // Jika data sudah berupa ApiResponse (dari ProblemDetails conversion)
+        if (data is ApiResponse<object> apiResponse)
+        {
+            return apiResponse;
+        }
+
+        // Jika data sudah dalam format JSON ApiResponse
         if (data is JsonElement element && IsApiResponse(element))
         {
-            return data;
+            return JsonSerializer.Deserialize<ApiResponse<object>>(
+                element.GetRawText(),
+                JsonSerializerOptions
+            )!;
         }
 
         var isSuccess = statusCode >= 200 && statusCode < 400;
@@ -154,6 +178,55 @@ public class ApiResponseMiddleware
             return new ApiResponse(isSuccess, message);
 
         return new ApiResponse<object>(isSuccess, message, data);
+    }
+
+    private static object ConvertProblemDetailsToApiResponse(
+        JsonElement problemDetails,
+        int statusCode
+    )
+    {
+        var errors = new List<ApiErrorDetails>();
+        string? title = "Validation error";
+
+        if (
+            problemDetails.TryGetProperty("title", out var titleElement)
+            && titleElement.ValueKind == JsonValueKind.String
+        )
+        {
+            title = titleElement.GetString();
+        }
+
+        if (
+            problemDetails.TryGetProperty("errors", out var errorsElement)
+            && errorsElement.ValueKind == JsonValueKind.Object
+        )
+        {
+            foreach (var error in errorsElement.EnumerateObject())
+            {
+                if (error.Value.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var errorMessage in error.Value.EnumerateArray())
+                    {
+                        if (errorMessage.ValueKind == JsonValueKind.String)
+                        {
+                            errors.Add(new ApiErrorDetails(error.Name, errorMessage.GetString()!));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Gunakan title sebagai message utama
+        return new ApiResponse<object>(false, title ?? "Validation error", null, errors);
+    }
+
+    private static bool IsApiResponse(JsonElement element)
+    {
+        // Cek properti dasar dari ApiResponse
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty("isSuccess", out _)
+            && element.TryGetProperty("message", out _)
+            && element.TryGetProperty("timestamp", out _);
     }
 
     private static async Task WriteApiResponse(
