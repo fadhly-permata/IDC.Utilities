@@ -1,0 +1,12 @@
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\bin\Debug\net10.0\IDC.Utilities.deps.json
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\bin\Debug\net10.0\IDC.Utilities.dll
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\bin\Debug\net10.0\IDC.Utilities.pdb
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\IDC.Utilities.GeneratedMSBuildEditorConfig.editorconfig
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\IDC.Utilities.AssemblyInfoInputs.cache
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\IDC.Utilities.AssemblyInfo.cs
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\IDC.Utilities.csproj.CoreCompileInputs.cache
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\IDC.Utilities.sourcelink.json
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\IDC.Utilities.dll
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\refint\IDC.Utilities.dll
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\IDC.Utilities.pdb
+d:\- Works\GitHub\IDC.Utilities\IDC.Utilities\obj\Debug\net10.0\ref\IDC.Utilities.dll
